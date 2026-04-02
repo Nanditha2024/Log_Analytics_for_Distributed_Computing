@@ -1,0 +1,72 @@
+name: CI-CD to Dataproc
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  DATAPROC_CLUSTER: ${{ vars.DATAPROC_CLUSTER }}
+  DATAPROC_STAGING_BUCKET: ${{ vars.DATAPROC_STAGING_BUCKET }}
+  GCS_LOGS_PATH: ${{ vars.GCS_LOGS_PATH }}
+  GCS_DEPLOYMENTS_PATH: ${{ vars.GCS_DEPLOYMENTS_PATH }}
+  GCS_HOST_META_PATH: ${{ vars.GCS_HOST_META_PATH }}
+  GCS_OUTPUT_BASE: ${{ vars.GCS_OUTPUT_BASE }}
+  SESSION_TIMEOUT_MINUTES: ${{ vars.SESSION_TIMEOUT_MINUTES }}
+  ATTRIBUTION_WINDOW_HOURS: ${{ vars.ATTRIBUTION_WINDOW_HOURS }}
+  BASELINE_HOURS: ${{ vars.BASELINE_HOURS }}
+  SALT_BUCKETS: ${{ vars.SALT_BUCKETS }}
+  TARGET_PARTITIONS: ${{ vars.TARGET_PARTITIONS }}
+
+jobs:
+  build-and-submit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.cache/coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+
+      - name: Build Jar
+        run: sbt clean package
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Submit Spark Job to Dataproc
+        run: scripts/submit_dataproc_job.sh
