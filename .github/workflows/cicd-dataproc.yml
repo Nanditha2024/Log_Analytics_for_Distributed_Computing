@@ -57,11 +57,40 @@ jobs:
       - name: Build Jar
         run: sbt clean package
 
-      - name: Authenticate to Google Cloud
+      - name: Validate GCP auth secrets
+        run: |
+          has_wif="false"
+          has_json="false"
+          if [[ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" && -n "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]]; then
+            has_wif="true"
+          fi
+          if [[ -n "${{ secrets.GCP_CREDENTIALS_JSON }}" ]]; then
+            has_json="true"
+          fi
+          if [[ "$has_wif" == "true" && "$has_json" == "true" ]]; then
+            echo "Set only one auth method: either WIF secrets or GCP_CREDENTIALS_JSON, not both."
+            exit 1
+          fi
+          if [[ "$has_wif" == "false" && "$has_json" == "false" ]]; then
+            echo "Missing GCP auth secrets. Set either:"
+            echo "1) GCP_WORKLOAD_IDENTITY_PROVIDER + GCP_SERVICE_ACCOUNT"
+            echo "or"
+            echo "2) GCP_CREDENTIALS_JSON"
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud (WIF)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud (Service Account JSON)
+        if: ${{ secrets.GCP_CREDENTIALS_JSON != '' }}
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
