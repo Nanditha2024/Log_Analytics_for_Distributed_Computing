@@ -21,16 +21,23 @@ object Main {
         System.err.println(error)
         printUsageAndExit()
       case Right(config) =>
-        val spark = SparkSession.builder()
+        val sparkBuilder = SparkSession.builder()
           .appName("DistributedLogAnalytics")
-          .master(sys.props.getOrElse("spark.master", "local[*]"))
           .config("spark.sql.legacy.parquet.nanosAsLong", "true")
           .config("spark.sql.shuffle.partitions", config.targetPartitions)
           .config("spark.default.parallelism", config.targetPartitions)
-          .config("spark.driver.bindAddress", "127.0.0.1")
-          .config("spark.driver.host", "127.0.0.1")
-          .config("spark.local.ip", "127.0.0.1")
-          .getOrCreate()
+
+        sys.props.get("spark.master").foreach(master => sparkBuilder.master(master))
+
+        // Local networking overrides are only safe/necessary for local Spark runs.
+        if (sys.props.get("spark.master").exists(_.startsWith("local"))) {
+          sparkBuilder
+            .config("spark.driver.bindAddress", "127.0.0.1")
+            .config("spark.driver.host", "127.0.0.1")
+            .config("spark.local.ip", "127.0.0.1")
+        }
+
+        val spark = sparkBuilder.getOrCreate()
         spark.sparkContext.setLogLevel("WARN")
         log("Spark session initialized")
 
