@@ -1,0 +1,4 @@
+.DS_Store
+gcp-sa-key.json
+eval "$(ssh-agent -s)"
+eval "$(ssh-agent -s)".pub
