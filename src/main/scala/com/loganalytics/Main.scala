@@ -93,6 +93,19 @@ object Main {
         showSection("SKEW STUDY", skew)
         log("Skew study written")
 
+        log("Building summary metrics")
+        val metricsSummary = Analytics.buildMetricsSummary(
+          enrichedLogs,
+          sessionOutputs.userSessions,
+          slo.daily,
+          attribution,
+          anomalies.anomalies,
+          skew
+        )
+        write(metricsSummary, s"${config.outputPath}/metrics_summary")
+        showSection("METRICS SUMMARY", metricsSummary)
+        log("Metrics summary written")
+
         enrichedLogs.unpersist()
         log("Pipeline completed successfully")
         spark.stop()

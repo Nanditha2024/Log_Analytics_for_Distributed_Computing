@@ -95,6 +95,7 @@ Pipeline writes parquet outputs under `--output`:
 - `anomalies/`
 - `top_offenders/`
 - `skew_study/`
+- `metrics_summary/`
 
 ## Scaling + Skew Study
 

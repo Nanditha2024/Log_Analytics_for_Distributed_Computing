@@ -9,6 +9,15 @@ object Analytics {
   final case class SloOutputs(hourly: DataFrame, daily: DataFrame)
   final case class AnomalyOutputs(anomalies: DataFrame, topOffenders: DataFrame)
 
+  private def metric(df: DataFrame, category: String, name: String, valueExpr: org.apache.spark.sql.Column, unit: String): DataFrame =
+    df.agg(valueExpr.as("metric_value"))
+      .select(
+        lit(category).as("category"),
+        lit(name).as("metric_name"),
+        col("metric_value").cast("double").as("metric_value"),
+        lit(unit).as("unit")
+      )
+
   def enrichLogs(logs: DataFrame, hostMeta: DataFrame): DataFrame =
     logs.join(hostMeta, Seq("host"), "left")
       .withColumn("region", coalesce(col("region"), lit("unknown")))
@@ -290,5 +299,59 @@ object Analytics {
       .withColumn("runtime_before_ms", lit(beforeMs))
       .withColumn("runtime_after_ms", lit(afterMs))
       .withColumn("runtime_improvement_pct", lit((beforeMs - afterMs) * 100.0 / math.max(beforeMs, 1L)))
+  }
+
+  def buildMetricsSummary(
+      enrichedLogs: DataFrame,
+      userSessions: DataFrame,
+      dailySlo: DataFrame,
+      attribution: DataFrame,
+      anomalies: DataFrame,
+      skewStudy: DataFrame
+  ): DataFrame = {
+    val logMetrics = Seq(
+      metric(enrichedLogs, "traffic", "total_requests", count(lit(1)), "count"),
+      metric(enrichedLogs, "latency", "avg_latency_ms", avg(col("latency_ms")), "ms"),
+      metric(enrichedLogs, "latency", "p95_latency_ms", expr("percentile_approx(latency_ms, 0.95, 1000)"), "ms"),
+      metric(enrichedLogs, "reliability", "error_rate_pct", avg(when(col("status_code") >= 500, 100.0).otherwise(0.0)), "percent")
+    )
+
+    val sessionMetrics = Seq(
+      metric(userSessions, "sessions", "total_sessions", count(lit(1)), "count"),
+      metric(userSessions, "sessions", "avg_events_per_session", avg(col("event_count")), "count"),
+      metric(
+        userSessions,
+        "sessions",
+        "avg_session_duration_minutes",
+        avg((unix_timestamp(col("session_end")) - unix_timestamp(col("session_start"))) / 60.0),
+        "minutes"
+      )
+    )
+
+    val sloMetrics = Seq(
+      metric(dailySlo, "slo", "peak_daily_p99_latency_ms", max(col("p99_latency_ms")), "ms"),
+      metric(dailySlo, "slo", "avg_daily_error_rate_pct", avg(col("error_rate") * 100.0), "percent")
+    )
+
+    val attributionMetrics = Seq(
+      metric(attribution.filter(col("deploy_version").isNotNull), "deployment", "attributed_windows", count(lit(1)), "count"),
+      metric(attribution.filter(col("deploy_version").isNotNull), "deployment", "avg_minutes_since_deploy", avg(col("minutes_since_deploy")), "minutes")
+    )
+
+    val anomalyMetrics = Seq(
+      metric(anomalies, "anomalies", "anomaly_windows", count(lit(1)), "count"),
+      metric(anomalies, "anomalies", "affected_service_endpoint_region", countDistinct(concat_ws("|", col("service"), col("endpoint"), col("region"))), "count")
+    )
+
+    val skewMetrics = Seq(
+      skewStudy.select(lit("skew").as("category"), lit("runtime_before_ms").as("metric_name"), col("runtime_before_ms").cast("double").as("metric_value"), lit("ms").as("unit")),
+      skewStudy.select(lit("skew").as("category"), lit("runtime_after_ms").as("metric_name"), col("runtime_after_ms").cast("double").as("metric_value"), lit("ms").as("unit")),
+      skewStudy.select(lit("skew").as("category"), lit("runtime_improvement_pct").as("metric_name"), col("runtime_improvement_pct").cast("double").as("metric_value"), lit("percent").as("unit")),
+      skewStudy.select(lit("skew").as("category"), lit("top_endpoint_share_pct").as("metric_name"), (col("top_endpoint_share") * 100.0).cast("double").as("metric_value"), lit("percent").as("unit"))
+    )
+
+    (logMetrics ++ sessionMetrics ++ sloMetrics ++ attributionMetrics ++ anomalyMetrics ++ skewMetrics)
+      .reduce(_.unionByName(_))
+      .orderBy(col("category"), col("metric_name"))
   }
 }
