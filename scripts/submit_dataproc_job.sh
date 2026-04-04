@@ -44,10 +44,11 @@ echo "Uploading jar to ${remote_jar_uri}"
 gsutil cp "$jar_path" "$remote_jar_uri"
 
 echo "Submitting Dataproc Spark job to cluster ${DATAPROC_CLUSTER} in ${GCP_REGION}"
-gcloud dataproc jobs submit spark "$remote_jar_uri" \
+gcloud dataproc jobs submit spark \
   --project "$GCP_PROJECT_ID" \
   --region "$GCP_REGION" \
   --cluster "$DATAPROC_CLUSTER" \
+  --jars "$remote_jar_uri" \
   --class com.loganalytics.Main \
   -- \
   --logs "$GCS_LOGS_PATH" \
