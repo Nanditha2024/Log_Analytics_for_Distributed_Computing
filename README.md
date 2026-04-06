@@ -105,7 +105,7 @@ Use:
 scripts/run_scale_study.sh
 ```
 
-This runs multiple data sizes and captures:
+This first materializes scaled parquet datasets under `data_2000000/`, `data_5000000/`, and `data_10000000/` from the base `data/` folder, then runs the full pipeline on each size and captures:
 
 - top-endpoint skew share
 - partition skew stats (max/min/avg partition rows) before and after salting

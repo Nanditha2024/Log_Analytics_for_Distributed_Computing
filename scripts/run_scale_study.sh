@@ -3,6 +3,16 @@ set -euo pipefail
 
 APP_JAR="${1:-target/scala-2.12/distributed-log-analytics-spark_2.12-0.1.0.jar}"
 
+spark-submit \
+  --master local[*] \
+  --class com.loganalytics.tools.ScaleData \
+  "$APP_JAR" \
+  --logs data/logs.parquet \
+  --deployments data/deployments.parquet \
+  --host-meta data/host_meta.parquet \
+  --output-root . \
+  --target-rows 2000000,5000000,10000000
+
 for rows in 2000000 5000000 10000000; do
   out_dir="output_scale_${rows}"
   spark-submit \
@@ -14,8 +24,6 @@ for rows in 2000000 5000000 10000000; do
     --host-meta "data_${rows}/host_meta" \
     --output "$out_dir" \
     --input-format parquet \
-    --generate-sample-data \
-    --generated-rows "$rows" \
     --session-timeout-minutes 30 \
     --attribution-window-hours 6 \
     --baseline-hours 24 \
