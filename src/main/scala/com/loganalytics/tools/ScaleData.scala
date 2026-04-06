@@ -4,6 +4,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
 object ScaleData {
   final case class Config(
@@ -23,7 +24,7 @@ object ScaleData {
 
     spark.sparkContext.setLogLevel("WARN")
 
-    val logs = spark.read.parquet(config.logsPath).cache()
+    val logs = normalizeTimestamp(spark.read.parquet(config.logsPath), "timestamp").cache()
     val deployments = spark.read.parquet(config.deploymentsPath).cache()
     val hostMeta = spark.read.parquet(config.hostMetaPath).cache()
 
@@ -46,6 +47,21 @@ object ScaleData {
     deployments.unpersist()
     hostMeta.unpersist()
     spark.stop()
+  }
+
+  private def normalizeTimestamp(df: DataFrame, columnName: String): DataFrame = {
+    df.schema(columnName).dataType match {
+      case TimestampType =>
+        df.withColumn(columnName, col(columnName).cast("timestamp"))
+      case LongType =>
+        df.withColumn(columnName, to_timestamp(from_unixtime((col(columnName) / lit(1000000000L)).cast("double"))))
+      case IntegerType =>
+        df.withColumn(columnName, to_timestamp(from_unixtime(col(columnName).cast("long"))))
+      case StringType =>
+        df.withColumn(columnName, to_timestamp(col(columnName)))
+      case _ =>
+        df.withColumn(columnName, to_timestamp(col(columnName).cast("string")))
+    }
   }
 
   private def expandLogs(spark: SparkSession, logs: DataFrame, baseCount: Long, targetRows: Long): DataFrame = {
