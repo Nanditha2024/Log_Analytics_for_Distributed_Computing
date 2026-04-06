@@ -18,6 +18,7 @@ object ScaleData {
     val config = parseArgs(args)
     val spark = SparkSession.builder()
       .appName("ScaleLogAnalyticsData")
+      .config("spark.sql.legacy.parquet.nanosAsLong", "true")
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("WARN")
