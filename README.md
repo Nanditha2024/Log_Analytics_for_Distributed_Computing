@@ -78,31 +78,6 @@ Deployment Regression
 Anomaly Severity
 
 
-⚙️ Pipeline Workflow
-
-Application Logs
-        │
-        ▼
-Google Cloud Storage
-        │
-        ▼
-Apache Spark (Dataproc)
-        │
-        ├── Data Cleaning
-        ├── Session Reconstruction
-        ├── Window Analytics
-        ├── SLO Metrics
-        ├── Anomaly Detection
-        ├── Deployment Attribution
-        └── Fault Tolerance Validation
-        │
-        ▼
-BigQuery
-        │
-        ▼
-Looker Studio Dashboard
-
-
 📈 Results
 The project successfully demonstrated
 Scalable distributed log processing
@@ -124,22 +99,6 @@ Developing rolling-window anomaly detection
 Performing deployment attribution analysis
 Validating Spark fault tolerance through worker-node failure experiments
 Integrating analysis into the final project report
-
-
-📂 Repository Structure
-src/
-│── log_pipeline.py
-│── anomaly_detection.py
-│── deployment_analysis.py
-│── metrics.py
-
-datasets/
-
-outputs/
-
-dashboard/
-
-README.md
 
 
 📚 Skills Demonstrated
