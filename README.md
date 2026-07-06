@@ -79,6 +79,7 @@ Anomaly Severity
 
 
 ⚙️ Pipeline Workflow
+
 Application Logs
         │
         ▼
