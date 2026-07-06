@@ -1,184 +1,149 @@
-# Distributed Log Analytics Using Apache Spark (Scala)
+🚀 Distributed Log Analytics Using Apache Spark
+Overview
+This project demonstrates a scalable distributed log analytics pipeline built with Apache Spark on Google Cloud Platform to process large-scale application logs. The pipeline analyzes millions of log records to monitor service performance, detect anomalies, evaluate deployment impact, and demonstrate Spark's fault tolerance capabilities.
+The project was developed as part of the Distributed Software Systems course at Concordia University and focuses on applying distributed computing principles to solve real-world observability and analytics challenges.
+🎯 Business Problem
+Modern applications generate millions of log records every day.
+Traditional single-machine processing struggles with this volume, making it difficult to quickly identify:
+Performance bottlenecks
+Service failures
+Latency spikes
+Deployment regressions
+Infrastructure issues
+This project builds a distributed analytics framework capable of processing large log datasets efficiently using Apache Spark while producing actionable insights through interactive dashboards.
+🛠 Technologies
+Apache Spark
+PySpark / Spark SQL
+Scala
+Google Cloud Platform
+Google Cloud Storage (GCS)
+Google Cloud Dataproc
+BigQuery
+Looker Studio
+Git
+GitHub Actions
+🏗 System Architecture
+The pipeline follows a distributed architecture consisting of three layers:
+Data Ingestion
+Reads log datasets from Google Cloud Storage
+Loads data into Spark DataFrames
+Performs distributed partitioning
+Distributed Processing
+Executed on a Dataproc Spark Cluster
+Data Cleaning
+Session Reconstruction
+Trace Analysis
+Log Aggregation
+Window Functions
+Anomaly Detection
+Deployment Attribution
+Fault Tolerance Testing
+Analytics & Visualization
+Processed results are exported to
+BigQuery
+Looker Studio
+for dashboard visualization.
+✨ Key Features
+Distributed log processing using Apache Spark
+ETL pipeline for large datasets
+Sessionization using Window Functions
+Trace reconstruction
+Service Level Objective (SLO) metrics
+p50 / p95 / p99 latency analysis
+Rolling window anomaly detection
+Deployment impact analysis
+Spark fault tolerance validation
+BigQuery integration
+Interactive dashboards
+📊 Analytics Performed
+The pipeline calculates
+Request Count
+Average Latency
+p50 Latency
+p95 Latency
+p99 Latency
+Error Rate
+Service Availability
+Regional Performance
+Deployment Regression
+Anomaly Severity
+⚙️ Pipeline Workflow
+Application Logs
+        │
+        ▼
+Google Cloud Storage
+        │
+        ▼
+Apache Spark (Dataproc)
+        │
+        ├── Data Cleaning
+        ├── Session Reconstruction
+        ├── Window Analytics
+        ├── SLO Metrics
+        ├── Anomaly Detection
+        ├── Deployment Attribution
+        └── Fault Tolerance Validation
+        │
+        ▼
+BigQuery
+        │
+        ▼
+Looker Studio Dashboard
+📈 Results
+The project successfully demonstrated
+Scalable distributed log processing
+Efficient ETL workflows
+Spark SQL analytics
+Real-time service performance monitoring
+Automated anomaly detection
+Deployment impact analysis
+Recovery from worker-node failures using Spark lineage
+Interactive cloud dashboards for business reporting
+👩‍💻 My Contribution
+My responsibilities included:
+Designing and implementing the Log Analytics pipeline
+Building distributed ETL workflows using Apache Spark
+Implementing latency and error-rate analysis
+Developing rolling-window anomaly detection
+Performing deployment attribution analysis
+Validating Spark fault tolerance through worker-node failure experiments
+Integrating analysis into the final project report
+📂 Repository Structure
+src/
+│── log_pipeline.py
+│── anomaly_detection.py
+│── deployment_analysis.py
+│── metrics.py
 
-This project implements a distributed Spark pipeline for large-scale log analytics with:
+datasets/
 
-- Session/trace reconstruction (window analytics)
-- SLO/SLA metrics with p50/p95/p99 percentiles (shuffle + aggregation)
-- Deployment change-impact attribution (time-constrained join)
-- Rolling anomaly detection and top offenders
-- Skew/straggler benchmark with salting mitigation and before/after runtime
+outputs/
 
-## Project Structure
+dashboard/
 
-```text
-.
-├── build.sbt
-├── project/
-│   └── build.properties
-├── scripts/
-│   ├── run_local.sh
-│   └── run_scale_study.sh
-└── src/main/scala/com/loganalytics/
-    ├── Main.scala
-    ├── analytics/Analytics.scala
-    ├── config/AppConfig.scala
-    ├── data/SyntheticDataGenerator.scala
-    └── io/DataLoader.scala
-```
-
-## Input Datasets
-
-Expected schemas:
-
-- `logs(timestamp, service, host, endpoint, status_code, latency_ms, user_id, trace_id)`
-- `deployments(service, version, deploy_time)`
-- `host_meta(host, region, instance_type)`
-
-Defaults:
-
-- `data/logs.parquet`
-- `data/deployments.parquet`
-- `data/host_meta.parquet`
-
-## Build
-
-```bash
-sbt clean package
-```
-
-## Run (existing data)
-
-```bash
-spark-submit \
-  --master local[*] \
-  --class com.loganalytics.Main \
-  target/scala-2.12/distributed-log-analytics-spark_2.12-0.1.0.jar \
-  --logs data/logs.parquet \
-  --deployments data/deployments.parquet \
-  --host-meta data/host_meta.parquet \
-  --output output \
-  --input-format parquet \
-  --session-timeout-minutes 30 \
-  --attribution-window-hours 6 \
-  --baseline-hours 24 \
-  --salt-buckets 16 \
-  --target-partitions 64
-```
-
-## Run (generate reproducible sample data)
-
-```bash
-spark-submit \
-  --master local[*] \
-  --class com.loganalytics.Main \
-  target/scala-2.12/distributed-log-analytics-spark_2.12-0.1.0.jar \
-  --logs data/logs.parquet \
-  --deployments data/deployments.parquet \
-  --host-meta data/host_meta.parquet \
-  --output output \
-  --input-format parquet \
-  --generate-sample-data \
-  --generated-rows 2000000
-```
-
-Synthetic generator is deterministic from fixed random seeds for reproducibility.
-
-## Outputs
-
-Pipeline writes parquet outputs under `--output`:
-
-- `session_trace/`
-- `user_sessions/`
-- `slo/hourly/`
-- `slo/daily/`
-- `change_impact_attribution/`
-- `anomalies/`
-- `top_offenders/`
-- `skew_study/`
-- `metrics_summary/`
-
-## Scaling + Skew Study
-
-Use:
-
-```bash
-scripts/run_scale_study.sh
-```
-
-This first materializes scaled parquet datasets under `data_2000000/`, `data_5000000/`, and `data_10000000/` from the base `data/` folder, then runs the full pipeline on each size and captures:
-
-- top-endpoint skew share
-- partition skew stats (max/min/avg partition rows) before and after salting
-- runtime before and after salting
-- improvement percentage
-
-## Notes
-
-- Spark dependencies are marked `provided` for cluster execution.
-- For YARN/Kubernetes clusters, pass cluster-specific `--master`, deploy mode, and resource flags.
-- Adjust `--target-partitions` based on executor cores and input size.
-
-## CI/CD: GitHub -> GCP Dataproc
-
-This repo now includes:
-
-- GitHub Actions workflow: `.github/workflows/cicd-dataproc.yml`
-- Dataproc submit script: `scripts/submit_dataproc_job.sh`
-
-### Pipeline behavior
-
-On each push to `main` or `master` (or manual run via `workflow_dispatch`), GitHub Actions:
-
-1. Builds the Spark jar with `sbt clean package`
-2. Authenticates to GCP
-3. Uploads the jar to your staging bucket under `gs://<DATAPROC_STAGING_BUCKET>/artifacts/`
-4. Submits a Spark job to your Dataproc cluster (`com.loganalytics.Main`)
-
-### Required GitHub repository variables
-
-Set these under `Settings -> Secrets and variables -> Actions -> Variables`:
-
-- `GCP_PROJECT_ID` (example: `my-gcp-project`)
-- `GCP_REGION` (example: `us-central1`)
-- `DATAPROC_CLUSTER` (existing Dataproc cluster name)
-- `DATAPROC_STAGING_BUCKET` (bucket name only, no `gs://`)
-- `GCS_LOGS_PATH` (example: `gs://my-data/logs.parquet`)
-- `GCS_DEPLOYMENTS_PATH` (example: `gs://my-data/deployments.parquet`)
-- `GCS_HOST_META_PATH` (example: `gs://my-data/host_meta.parquet`)
-- `GCS_OUTPUT_BASE` (example: `gs://my-data/output`)
-
-Optional tunables (defaults are used if omitted):
-
-- `SESSION_TIMEOUT_MINUTES` (default `30`)
-- `ATTRIBUTION_WINDOW_HOURS` (default `6`)
-- `BASELINE_HOURS` (default `24`)
-- `SALT_BUCKETS` (default `16`)
-- `TARGET_PARTITIONS` (default `64`)
-
-### Required GitHub repository secrets (OIDC)
-
-Set these under `Settings -> Secrets and variables -> Actions -> Secrets`:
-
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
-
-### GCP IAM permissions needed
-
-Grant the GitHub-authenticated service account at least:
-
-- `roles/dataproc.editor` (or narrower Dataproc job submission permissions)
-- `roles/storage.objectAdmin` on the staging bucket and output/input buckets as needed
-
-It must also be allowed to impersonate via your Workload Identity Provider mapping.
-
-### Triggering the deployment
-
-After configuration, push your code to GitHub:
-
-```bash
-git add .
-git commit -m "Enable Dataproc CI/CD"
-git push origin main
-```
-
-The push starts workflow `CI-CD to Dataproc`, which uploads the new jar and submits the Spark job automatically.
+README.md
+📚 Skills Demonstrated
+Distributed Computing
+Apache Spark
+PySpark
+Spark SQL
+ETL Pipelines
+BigQuery
+Google Cloud Platform
+Dataproc
+Data Engineering
+Data Analytics
+Window Functions
+Fault Tolerance
+Dashboard Development
+Data Visualization
+🎓 Academic Project
+Course: COEN 6731 – Distributed Software Systems
+Institution: Concordia University
+⭐ Future Improvements
+Real-time streaming using Spark Structured Streaming
+Kafka integration
+Airflow orchestration
+Docker deployment
+CI/CD pipeline enhancements
+Machine learning-based anomaly detection
